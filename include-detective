@@ -4,6 +4,7 @@
 # Public Domain
 
 # Version history
+# v0.2 - Use CFLAGS environment variable to pass parameters to compiler
 # v0.1 - Initial release
 
 # Tested with GCC and Clang.
@@ -12,23 +13,30 @@ set -eou pipefail
 
 printhelp()
 {
-	echo "Usage: $(basename "$0") [options] <file> [-- <compiler-options>]"
+	echo "Usage: $(basename "$0") [options] <file>"
   echo "Print include statistics about a C/C++ file or system header"
   echo ""
   echo "Options:"
   echo "   -p     print the preprocessed source instead of"
   echo "          computing stats"
   echo "   -d     print the preprocessor defines"
-  echo "   -f     specify input file"
   echo "   -h     show this help"
+  echo "   -x     <file> is a C++ file"
   echo ""
-  echo "To inspect C++ code use the -xc++ compiler option like so:"
-  echo " ./$(basename "$0") example.cpp -- -xc++"
+  echo "Environment variables:"
+  echo "   CC     path to the compiler executable"
+  echo "   CFLAGS compilation flags to pass to the compiler."
+  echo "          these flags cannot contain filenames or"
+  echo "          output specifiers (e.g. -o)"
 }
 
 # If CC env variable is not defined default to cc
 if [ -z ${CC+x} ]; then
   CC=cc
+fi
+
+if [ -z ${CFLAGS+x} ]; then
+  CFLAGS=
 fi
 
 # Table width
@@ -43,12 +51,12 @@ main()
   # use system include
   if [ -f "$INPUT_FILE" ]; then
     c_string="\"$INPUT_FILE\""
-    preprocessor_output=$($CC -E $@ "$INPUT_FILE")
-    defines_output=$($CC -E $@ -dM "$INPUT_FILE")
+    preprocessor_output=$($CC $COMPILER_ARGS -E $CFLAGS "$INPUT_FILE")
+    defines_output=$($CC $COMPILER_ARGS -E $CFLAGS -dM "$INPUT_FILE")
   else
     c_string="<$INPUT_FILE>"
-    preprocessor_output=$(echo "#include $c_string" | $CC -E $@ -)
-    defines_output=$(echo "#include $c_string" | $CC -E $@ -dM -)
+    preprocessor_output=$(echo "#include $c_string" | $CC $COMPILER_ARGS -E $CFLAGS -)
+    defines_output=$(echo "#include $c_string" | $CC $COMPILER_ARGS -E $CFLAGS -dM -)
   fi
 
   if [ $PRINT_SOURCE -eq 1 ]; then
@@ -77,7 +85,7 @@ main()
 
   # Preprocessor defines
   total_defines=$(echo "$defines_output" | wc -l)
-  compiler_defines=$(echo "" | $CC -E -dM - | wc -l)
+  compiler_defines=$(echo "" | $CC $COMPILER_ARGS -E $CFLAGS -dM - | wc -l)
   include_defines=$(($total_defines-$compiler_defines))
 
   printheader "$c_string" "Lines of code" "Preprocessor defines" "Nested includes"
@@ -102,7 +110,9 @@ printseparator()
 
 printheader()
 {
-  printf "$B#include $1$R expands to:\n"
+  printf "%-9s $B${CC}$R\n" "Compiler:"
+  printf "%-9s $B${CFLAGS}$R\n" "Flags:"
+  printf "%-9s $B$1$R\n" "File:"
   printf "\n$B%-${COLUMN_WIDTH}s%-${COLUMN_WIDTH}s%-${COLUMN_WIDTH}s$R\n" "$2" "$3" "$4"
   printseparator
 }
@@ -143,18 +153,19 @@ SEPARATOR_WIDTH=$((WIDTH-4))
 TEXT_WIDTH=$((COLUMN_WIDTH-8))
 FIRST_COLUMN_WIDTH=$((COLUMN_WIDTH-(TEXT_WIDTH+3)))
 
+COMPILER_ARGS=""
 PRINT_SOURCE=0
 PRINT_DEFINES=0
-while getopts "pf:dh" opt; do
+while getopts "pdxh" opt; do
   case $opt in
     p)
       PRINT_SOURCE=1
       ;;
+    x)
+      COMPILER_ARGS="-xc++"
+      ;;
     d)
       PRINT_DEFINES=1
-      ;;
-    f)
-      INPUT_FILE="$OPTARG"
       ;;
     h)
       printhelp
@@ -169,16 +180,10 @@ done
 
 shift $((OPTIND-1))
 
-if [ $# -eq 0 ] && [ -z ${INPUT_FILE+x} ]; then
+if [ $# -eq 0 ]; then
   printhelp
   exit 1
 else
-  if [ "${2-}" == "--" ]; then
-    INPUT_FILE="$1"
-    shift 2
-  elif [ -z ${INPUT_FILE+x} ]; then
-    INPUT_FILE="$1"
-    shift
-  fi
-  main $@
+  INPUT_FILE="$1"
+  main
 fi
