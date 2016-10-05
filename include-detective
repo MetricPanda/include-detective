@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Include Detective v0.1 - by Unspongeful (https://metricpanda.com)
+# Include Detective v0.3 - by Unspongeful (https://metricpanda.com)
 # Public Domain
 
 # Version history
+# v0.3 - Add option to print includes
 # v0.2 - Use CFLAGS environment variable to pass parameters to compiler
 # v0.1 - Initial release
 
@@ -20,6 +21,7 @@ printhelp()
   echo "   -p     print the preprocessed source instead of"
   echo "          computing stats"
   echo "   -d     print the preprocessor defines"
+  echo "   -i     print nested includes"
   echo "   -h     show this help"
   echo "   -x     <file> is a C++ file"
   echo ""
@@ -58,13 +60,19 @@ main()
     preprocessor_output=$(echo "#include $c_string" | $CC $COMPILER_ARGS -E $CFLAGS -)
     defines_output=$(echo "#include $c_string" | $CC $COMPILER_ARGS -E $CFLAGS -dM -)
   fi
+  nested_includes=$(echo "$preprocessor_output" | { grep -e '^# [0-9]* "[^<]' || true; })
 
   if [ $PRINT_SOURCE -eq 1 ]; then
     echo "$preprocessor_output" | sed '/^\s*$/d'
-    exit 0
   fi
   if [ $PRINT_DEFINES -eq 1 ]; then
     echo "$defines_output"
+  fi
+  if [ $PRINT_INCLUDES -eq 1 ]; then
+    echo "$nested_includes" | cut -d' ' -f 3 | sort | uniq
+  fi
+  exit_early=$(($PRINT_SOURCE+$PRINT_INCLUDES+$PRINT_DEFINES))
+  if [ $exit_early -gt 0 ]; then
     exit 0
   fi
 
@@ -78,9 +86,8 @@ main()
 
   # Nested includes
   # https://gcc.gnu.org/onlinedocs/cpp/Preprocessor-Output.html
-  nested_includes=$(echo "$preprocessor_output" | { grep -e '^# [0-9]* "[^<]' || true; })
-  total_includes=$(echo "$nested_includes" | cut -d' ' -f 3 | uniq | wc -l)
-  non_system_include=$(echo "$nested_includes" | sed '/".*3/d' | cut -d' ' -f 3 | uniq | wc -l)
+  total_includes=$(echo "$nested_includes" | cut -d' ' -f 3 | sort | uniq | wc -l)
+  non_system_include=$(echo "$nested_includes" | sed '/".*3/d' | cut -d' ' -f 3 | sort | uniq | wc -l)
   system_include=$(($total_includes-non_system_include))
 
   # Preprocessor defines
@@ -156,8 +163,12 @@ FIRST_COLUMN_WIDTH=$((COLUMN_WIDTH-(TEXT_WIDTH+3)))
 COMPILER_ARGS=""
 PRINT_SOURCE=0
 PRINT_DEFINES=0
-while getopts "pdxh" opt; do
+PRINT_INCLUDES=0
+while getopts "pdxhi" opt; do
   case $opt in
+    i)
+      PRINT_INCLUDES=1
+      ;;
     p)
       PRINT_SOURCE=1
       ;;
