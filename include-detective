@@ -102,7 +102,7 @@ main()
   printcell $non_system_include "user defined"
   endcolumn
 
-  printcell $comment_lines "comments"
+  printcell $comment_lines "directives"
   printcell $compiler_defines "from compiler"
   printcell $system_include "system"
   endcolumn
