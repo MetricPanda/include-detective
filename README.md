@@ -60,6 +60,17 @@ Take a look at the blog post [Include Detective: Keep An Eye on Those Includes](
 
 Haven't tried, but you can probably run it on a Linux-like environment like Cygwin or using the Windows Subsystem for Linux if you are on Windows 10.
 
+## Example
+
+The following is an example of a small console program before and after includes to system headers have been removed.
+Only the symbols actually used by the program have been kept (e.g. `externs`, `typedefs` and `defines`).
+
+Compile time went from 0.8s to 0.5s after the trimming process.
+
+![](/images/include-detective-before.gif)
+
+![](/images/include-detective-after.gif)
+
 
 ## License
 

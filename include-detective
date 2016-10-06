@@ -15,7 +15,7 @@ set -eou pipefail
 
 printhelp()
 {
-	echo "Usage: $(basename "$0") [options] <file>"
+  echo "Usage: $(basename "$0") [options] <file>"
   echo "Print include statistics about a C/C++ file or system header"
   echo ""
   echo "Options:"
