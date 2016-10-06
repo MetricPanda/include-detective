@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Include Detective v0.3 - by Unspongeful (https://metricpanda.com)
+# Include Detective v0.4 - by Unspongeful (https://metricpanda.com)
 # Public Domain
 
 # Version history
+# v0.4 - Add option to set C++ mode using MODE env variable
 # v0.3 - Add option to print includes
 # v0.2 - Use CFLAGS environment variable to pass parameters to compiler
 # v0.1 - Initial release
@@ -30,6 +31,7 @@ printhelp()
   echo "   CFLAGS compilation flags to pass to the compiler."
   echo "          these flags cannot contain filenames or"
   echo "          output specifiers (e.g. -o)"
+  echo "   MODE   specify MODE=c++ to process as C++"
 }
 
 # If CC env variable is not defined default to cc
@@ -117,7 +119,7 @@ printseparator()
 
 printheader()
 {
-  printf "%-9s $B${CC}$R\n" "Compiler:"
+  printf "%-9s $B${CC}$R ($MODE)\n" "Compiler:"
   printf "%-9s $B${CFLAGS}$R\n" "Flags:"
   printf "%-9s $B$1$R\n" "File:"
   printf "\n$B%-${COLUMN_WIDTH}s%-${COLUMN_WIDTH}s%-${COLUMN_WIDTH}s$R\n" "$2" "$3" "$4"
@@ -173,6 +175,7 @@ while getopts "pdxhi" opt; do
       PRINT_SOURCE=1
       ;;
     x)
+      MODE="C++"
       COMPILER_ARGS="-xc++"
       ;;
     d)
@@ -190,6 +193,16 @@ while getopts "pdxhi" opt; do
 done
 
 shift $((OPTIND-1))
+
+case ${MODE:-} in
+  c++|C++|CXX|cxx)
+    COMPILER_ARGS="-xc++"
+    MODE="C++"
+    ;;
+  *)
+    MODE="C"
+    ;;
+esac
 
 if [ $# -eq 0 ]; then
   printhelp
