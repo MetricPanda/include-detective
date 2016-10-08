@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Include Detective v0.4 - by Unspongeful (https://metricpanda.com)
+# Include Detective v0.5 - by Unspongeful (https://metricpanda.com)
 # Public Domain
 
 # Version history
+# v0.5 - Add support for multiple input files
 # v0.4 - Add option to set C++ mode using MODE env variable
 # v0.3 - Add option to print includes
 # v0.2 - Use CFLAGS environment variable to pass parameters to compiler
@@ -15,8 +16,9 @@ set -eou pipefail
 
 printhelp()
 {
-  echo "Usage: $(basename "$0") [options] <file>"
-  echo "Print include statistics about a C/C++ file or system header"
+  echo "Usage: $(basename "$0") [options] <file1> <file2> ..."
+  echo "Print include statistics about one or more C/C++ file"
+  echo " or system headers."
   echo ""
   echo "Options:"
   echo "   -p     print the preprocessed source instead of"
@@ -48,20 +50,27 @@ if [ -z ${WIDTH+x} ]; then
   WIDTH=70
 fi
 
+joinarray()
+{
+  local IFS=","
+  echo "$*";
+}
+
 main()
 {
-  # If the source filename points to an existing file
-  # include relative to working directory, otherwise
-  # use system include
-  if [ -f "$INPUT_FILE" ]; then
-    c_string="\"$INPUT_FILE\""
-    preprocessor_output=$($CC $COMPILER_ARGS -E $CFLAGS "$INPUT_FILE")
-    defines_output=$($CC $COMPILER_ARGS -E $CFLAGS -dM "$INPUT_FILE")
-  else
-    c_string="<$INPUT_FILE>"
-    preprocessor_output=$(echo "#include $c_string" | $CC $COMPILER_ARGS -E $CFLAGS -)
-    defines_output=$(echo "#include $c_string" | $CC $COMPILER_ARGS -E $CFLAGS -dM -)
-  fi
+  c_string=""
+  for filename in "$@"; do
+    # If the source filename points to an existing file
+    # include relative to working directory, otherwise
+    # use system include
+    if [ -f "$filename" ]; then
+      printf -v c_string "$c_string#include \"$filename\"\n"
+    else
+      printf -v c_string "$c_string#include <$filename>\n"
+    fi
+  done
+  preprocessor_output=$(echo "$c_string" | $CC $COMPILER_ARGS -E $CFLAGS -)
+  defines_output=$(echo "$c_string" | $CC $COMPILER_ARGS -E $CFLAGS -dM -)
   nested_includes=$(echo "$preprocessor_output" | { grep -e '^# [0-9]* "[^<]' || true; })
 
   if [ $PRINT_SOURCE -eq 1 ]; then
@@ -97,7 +106,8 @@ main()
   compiler_defines=$(echo "" | $CC $COMPILER_ARGS -E $CFLAGS -dM - | wc -l)
   include_defines=$(($total_defines-$compiler_defines))
 
-  printheader "$c_string" "Lines of code" "Preprocessor defines" "Nested includes"
+  joined_sources=$(joinarray "$@")
+  printheader "$joined_sources" "Lines of code" "Preprocessor defines" "Nested includes"
 
   printcell $code_lines "code"
   printcell $include_defines "from includes"
@@ -208,6 +218,5 @@ if [ $# -eq 0 ]; then
   printhelp
   exit 1
 else
-  INPUT_FILE="$1"
-  main
+  main $@
 fi
