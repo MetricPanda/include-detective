@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Include Detective v0.5 - by Unspongeful (https://metricpanda.com)
+# Include Detective v0.6 - by Unspongeful (https://metricpanda.com)
 # Public Domain
 
 # Version history
+# v0.6 - Support CC enviroment variable that contains spaces in the path
 # v0.5 - Add support for multiple input files
 # v0.4 - Add option to set C++ mode using MODE env variable
 # v0.3 - Add option to print includes
@@ -26,7 +27,7 @@ printhelp()
   echo "   -d     print the preprocessor defines"
   echo "   -i     print nested includes"
   echo "   -h     show this help"
-  echo "   -x     <file> is a C++ file"
+  echo "   -x     <file> is a C/C++ file"
   echo ""
   echo "Environment variables:"
   echo "   CC     path to the compiler executable"
@@ -69,8 +70,8 @@ main()
       printf -v c_string "$c_string#include <$filename>\n"
     fi
   done
-  preprocessor_output=$(echo "$c_string" | $CC $COMPILER_ARGS -E $CFLAGS -)
-  defines_output=$(echo "$c_string" | $CC $COMPILER_ARGS -E $CFLAGS -dM -)
+  preprocessor_output=$(echo "$c_string" | "$CC" $COMPILER_ARGS -E $CFLAGS -)
+  defines_output=$(echo "$c_string" | "$CC" $COMPILER_ARGS -E $CFLAGS -dM -)
   nested_includes=$(echo "$preprocessor_output" | { grep -e '^# [0-9]* "[^<]' || true; })
 
   if [ $PRINT_SOURCE -eq 1 ]; then
@@ -103,7 +104,7 @@ main()
 
   # Preprocessor defines
   total_defines=$(echo "$defines_output" | wc -l)
-  compiler_defines=$(echo "" | $CC $COMPILER_ARGS -E $CFLAGS -dM - | wc -l)
+  compiler_defines=$(echo "" | "$CC" $COMPILER_ARGS -E $CFLAGS -dM - | wc -l)
   include_defines=$(($total_defines-$compiler_defines))
 
   joined_sources=$(joinarray "$@")
